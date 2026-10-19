@@ -1,14 +1,24 @@
 import asyncio
 import sys
+import os
+
+from dotenv import load_dotenv
 
 from asyncua import Server, ua
 
 from messaging.mqtt_service import MqttService
 from opcua.opcua_climate_service import OpcUAClimateService
 
-async def main():
-    mqtt_service = MqttService(host="", port=1883, username="", password="")
+load_dotenv()
 
+async def main():
+    mqtt_service = MqttService(
+        host=os.getenv("MQTT_HOST"), 
+        port=int(os.getenv("MQTT_PORT")), 
+        username=os.getenv("MQTT_USERNAME"), 
+        password=os.getenv("MQTT_PASSWORD")
+    )
+    
     services = [
         OpcUAClimateService(mqtt_service)
     ]

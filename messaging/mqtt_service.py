@@ -3,7 +3,6 @@ from collections.abc import Awaitable, Callable
 
 import aiomqtt
 
-
 class MqttService:
     def __init__(self, host="localhost", port=1883, username=None, password=None):
         self.host = host
