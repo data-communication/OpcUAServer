@@ -41,6 +41,9 @@ class OpcUAClimateService:
         if timestamp:
             await self.timestamp.write_value(timestamp)
 
+        output = f"{device_id}: "
+        output += "{ "
+
         for m in measurements:
             m_type = m.get("type")
             m_value = m.get("value")
@@ -56,4 +59,7 @@ class OpcUAClimateService:
             if m_unit is not None:
                 await self.measurement_nodes[m_type]["unit"].write_value(m_unit)
 
-            print(f"{m_type}: {m_value} {m_unit}")
+            output += f"{m_type.capitalize()}: {m_value}{m_unit}, "
+        output += f"Timestamp: {timestamp}"
+        output += " }"
+        print(output)
