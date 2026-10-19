@@ -6,7 +6,7 @@ class OpcUAClimateService:
         self.mqtt_service = mqtt_service
         self.measurement_nodes = {}
 
-    async def create_nodes(self, server, namespace):
+    async def create_nodes(self, server, namespace, topic):
         climate = await server.nodes.objects.add_folder(namespace, "Climate")
 
         self.device_id = await climate.add_variable(namespace, "DeviceId", "")
@@ -22,7 +22,7 @@ class OpcUAClimateService:
             "unit": await climate.add_variable(namespace, "HumidityUnit", "%"),
         }
 
-        self.mqtt_service.register("test/climate", self.handle_message)
+        self.mqtt_service.register(topic, self.handle_message)
 
     async def handle_message(self, payload):
         try:

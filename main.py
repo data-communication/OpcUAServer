@@ -18,7 +18,7 @@ async def main():
         username=os.getenv("MQTT_USERNAME"), 
         password=os.getenv("MQTT_PASSWORD")
     )
-    
+
     services = [
         OpcUAClimateService(mqtt_service)
     ]
@@ -37,7 +37,7 @@ async def main():
     namespace = await server.register_namespace("urn:jesten:devices")
 
     for service in services:
-        await service.create_nodes(server, namespace)
+        await service.create_nodes(server, namespace, os.getenv("MQTT_TOPIC"))
 
     async with server:
         await mqtt_service.run()
