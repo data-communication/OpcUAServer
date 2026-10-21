@@ -8,27 +8,27 @@ class OpcUAClimateService:
 
     async def create_nodes(self, server, namespace, topics):
         self.namespace = namespace
-        self.climate = await server.nodes.objects.add_folder(namespace, "Climate")
+        self.devices_folder = await server.nodes.objects.add_folder(namespace, "Devices")
 
         for topic in topics.split(";"):
             self.mqtt_service.register(topic, self.handle_message)
 
     async def _create_device_nodes(self, device_id: str):
-        device_folder = await self.climate.add_folder(self.namespace, device_id)
+        sub_device_folder = await self.devices_folder.add_folder(self.namespace, device_id)
 
         device_nodes = {}
         device_nodes = {
-            "device_id": await device_folder.add_variable(self.namespace, "DeviceId", device_id),
-            "timestamp": await device_folder.add_variable(self.namespace, "Timestamp", ""),
+            "device_id": await sub_device_folder.add_variable(self.namespace, "DeviceId", device_id),
+            "timestamp": await sub_device_folder.add_variable(self.namespace, "Timestamp", ""),
 
             "temperature": {
-                "value": await device_folder.add_variable(self.namespace, "TemperatureValue", 0.0),
-                "unit": await device_folder.add_variable(self.namespace, "TemperatureUnit", "°C"),
+                "value": await sub_device_folder.add_variable(self.namespace, "TemperatureValue", 0.0),
+                "unit": await sub_device_folder.add_variable(self.namespace, "TemperatureUnit", "°C"),
             },
 
             "humidity": {
-                "value": await device_folder.add_variable(self.namespace, "HumidityValue", 0.0),
-                "unit": await device_folder.add_variable(self.namespace, "HumidityUnit", "%"),
+                "value": await sub_device_folder.add_variable(self.namespace, "HumidityValue", 0.0),
+                "unit": await sub_device_folder.add_variable(self.namespace, "HumidityUnit", "%"),
             }
         }
 
