@@ -23,6 +23,7 @@ class MqttService:
     async def _subscribe(self, client):
         while True:
             topic = await self._topics.get()
+            print("Subscribing to:", topic)
             await client.subscribe(topic)
 
     async def _receive(self, client):

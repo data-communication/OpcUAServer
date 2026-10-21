@@ -37,7 +37,7 @@ async def main():
     namespace = await server.register_namespace("urn:jesten:devices")
 
     for service in services:
-        await service.create_nodes(server, namespace, os.getenv("MQTT_TOPIC"))
+        await service.create_nodes(server, namespace, os.getenv("MQTT_TOPICS"))
 
     async with server:
         await mqtt_service.run()

@@ -4,25 +4,35 @@ from asyncua import ua
 class OpcUAClimateService:
     def __init__(self, mqtt_service):
         self.mqtt_service = mqtt_service
-        self.measurement_nodes = {}
+        self.devices = {}
 
-    async def create_nodes(self, server, namespace, topic):
-        climate = await server.nodes.objects.add_folder(namespace, "Climate")
+    async def create_nodes(self, server, namespace, topics):
+        self.namespace = namespace
+        self.climate = await server.nodes.objects.add_folder(namespace, "Climate")
 
-        self.device_id = await climate.add_variable(namespace, "DeviceId", "")
-        self.timestamp = await climate.add_variable(namespace, "Timestamp", "")
+        for topic in topics.split(";"):
+            self.mqtt_service.register(topic, self.handle_message)
 
-        self.measurement_nodes["temperature"] = {
-            "value": await climate.add_variable(namespace, "TemperatureValue", 0.0),
-            "unit": await climate.add_variable(namespace, "TemperatureUnit", "°C"),
+    async def _create_device_nodes(self, device_id: str):
+        device_folder = await self.climate.add_folder(self.namespace, device_id)
+
+        device_nodes = {}
+        device_nodes = {
+            "device_id": await device_folder.add_variable(self.namespace, "DeviceId", device_id),
+            "timestamp": await device_folder.add_variable(self.namespace, "Timestamp", ""),
+
+            "temperature": {
+                "value": await device_folder.add_variable(self.namespace, "TemperatureValue", 0.0),
+                "unit": await device_folder.add_variable(self.namespace, "TemperatureUnit", "°C"),
+            },
+
+            "humidity": {
+                "value": await device_folder.add_variable(self.namespace, "HumidityValue", 0.0),
+                "unit": await device_folder.add_variable(self.namespace, "HumidityUnit", "%"),
+            }
         }
 
-        self.measurement_nodes["humidity"] = {
-            "value": await climate.add_variable(namespace, "HumidityValue", 0.0),
-            "unit": await climate.add_variable(namespace, "HumidityUnit", "%"),
-        }
-
-        self.mqtt_service.register(topic, self.handle_message)
+        self.devices[device_id] = device_nodes
 
     async def handle_message(self, payload):
         try:
@@ -35,11 +45,15 @@ class OpcUAClimateService:
         measurements = message.get("measurements", [])
         timestamp = message.get("timestamp")
 
+        if device_id and device_id not in self.devices:
+            await self._create_device_nodes(device_id)
+
         if device_id:
-            await self.device_id.write_value(device_id)
+            await self.devices[device_id]["device_id"].write_value(device_id)
 
         if timestamp:
-            await self.timestamp.write_value(timestamp)
+            await self.devices[device_id]["timestamp"].write_value(timestamp)
+
 
         output = f"{device_id}: "
         output += "{ "
@@ -49,15 +63,15 @@ class OpcUAClimateService:
             m_value = m.get("value")
             m_unit = m.get("unit")
 
-            if m_type not in self.measurement_nodes:
+            if m_type not in self.devices[device_id]:
                 print(f"Unknown measurement type: {m_type}")
                 continue
 
             if m_value is not None:
-                await self.measurement_nodes[m_type]["value"].write_value(float(m_value))
+                await self.devices[device_id][m_type]["value"].write_value(float(m_value))
 
             if m_unit is not None:
-                await self.measurement_nodes[m_type]["unit"].write_value(m_unit)
+                await self.devices[device_id][m_type]["unit"].write_value(m_unit)
 
             output += f"{m_type.capitalize()}: {m_value}{m_unit}, "
         output += f"Timestamp: {timestamp}"
