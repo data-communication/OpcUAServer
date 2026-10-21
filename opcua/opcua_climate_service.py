@@ -16,23 +16,42 @@ class OpcUAClimateService:
     async def _create_device_nodes(self, device_id: str):
         sub_device_folder = await self.devices_folder.add_folder(self.namespace, device_id)
 
-        device_nodes = {}
-        device_nodes = {
-            "device_id": await sub_device_folder.add_variable(self.namespace, "DeviceId", device_id),
-            "timestamp": await sub_device_folder.add_variable(self.namespace, "Timestamp", ""),
+        temperature_folder = await sub_device_folder.add_folder(
+            self.namespace, "Temperature"
+        )
 
-            "temperature": {
-                "value": await sub_device_folder.add_variable(self.namespace, "TemperatureValue", 0.0),
-                "unit": await sub_device_folder.add_variable(self.namespace, "TemperatureUnit", "°C"),
-            },
-
-            "humidity": {
-                "value": await sub_device_folder.add_variable(self.namespace, "HumidityValue", 0.0),
-                "unit": await sub_device_folder.add_variable(self.namespace, "HumidityUnit", "%"),
-            }
+        temperature_nodes = {
+            "value": await temperature_folder.add_variable(
+                self.namespace, "Value", 0.0
+            ),
+            "unit": await temperature_folder.add_variable(
+                self.namespace, "Unit", "°C"
+            ),
+            "timestamp": await temperature_folder.add_variable(
+                self.namespace, "Timestamp", ""
+            ),
         }
 
-        self.devices[device_id] = device_nodes
+        humidity_folder = await sub_device_folder.add_folder(
+            self.namespace, "Humidity"
+        )
+
+        humidity_nodes = {
+            "value": await humidity_folder.add_variable(
+                self.namespace, "Value", 0.0
+            ),
+            "unit": await humidity_folder.add_variable(
+                self.namespace, "Unit", "%"
+            ),
+            "timestamp": await humidity_folder.add_variable(
+                self.namespace, "Timestamp", ""
+            ),
+        }
+
+        self.devices[device_id] = {
+            "temperature": temperature_nodes,
+            "humidity": humidity_nodes,
+        }
 
     async def handle_message(self, payload):
         try:
@@ -45,35 +64,36 @@ class OpcUAClimateService:
         measurements = message.get("measurements", [])
         timestamp = message.get("timestamp")
 
-        if device_id and device_id not in self.devices:
+        if device_id not in self.devices:
             await self._create_device_nodes(device_id)
 
-        if device_id:
-            await self.devices[device_id]["device_id"].write_value(device_id)
-
-        if timestamp:
-            await self.devices[device_id]["timestamp"].write_value(timestamp)
-
-
-        output = f"{device_id}: "
-        output += "{ "
+        output = f"{device_id}: {{"
 
         for m in measurements:
             m_type = m.get("type")
             m_value = m.get("value")
             m_unit = m.get("unit")
+            m_timestamp = m.get("timestamp", timestamp)
 
             if m_type not in self.devices[device_id]:
                 print(f"Unknown measurement type: {m_type}")
                 continue
 
+            nodes = self.devices[device_id][m_type]
+
             if m_value is not None:
-                await self.devices[device_id][m_type]["value"].write_value(float(m_value))
+                await nodes["value"].write_value(float(m_value))
 
             if m_unit is not None:
-                await self.devices[device_id][m_type]["unit"].write_value(m_unit)
+                await nodes["unit"].write_value(str(m_unit))
 
-            output += f"{m_type.capitalize()}: {m_value}{m_unit}, "
-        output += f"Timestamp: {timestamp}"
-        output += " }"
+            if m_timestamp is not None:
+                await nodes["timestamp"].write_value(str(m_timestamp))
+
+            output += (
+                f"{m_type.capitalize()}: {m_value} {m_unit}, "
+                f"Timestamp: {m_timestamp}; "
+            )
+
+        output += "}"
         print(output)
